@@ -11,45 +11,145 @@
 #include <string.h>
 
 typedef unsigned char byte;
-typedef unsigned short memptr;
+typedef unsigned short Short;
+typedef byte* MemPtr;
 
-struct State {
-    byte *stack;
-    byte *memory;
+typedef struct State {
+    MemPtr stack;
+    MemPtr memory;
+    MemPtr endOfProgram;
+    MemPtr args;
+    MemPtr PC;
+} *StatePtr ;
+
+typedef struct CompilationState {
+    MemPtr memory;
+    MemPtr PC;
+    int argsToPush;
+    MemPtr endOfMemory;
+} *CompilationStatePtr;
+
+typedef void (*apicall)(StatePtr);
+void PassToPutS(StatePtr);
+void PushShortToStack(StatePtr);
+
+struct APICall {
+    char* name;
+    apicall call;
+    int opsSize;
 };
 
-memptr PopPtrFromStack(struct State *state) {
-    state->stack += sizeof(memptr);
-    memptr value = *(memptr*)state->stack;
+struct APICall ApiCallsList[] = {
+    {"PassToPutS", &PassToPutS, 0},
+    {"PushShortToStack", &PushShortToStack, sizeof(Short)},
+    {NULL,NULL,-1}
+};
+
+Short PopShortFromStack(StatePtr state) {
+    state->stack += sizeof(Short);
+    Short value = *(Short*)state->stack;
     return value;
 }
 
-void PushPtrToStack(struct State *state, memptr ptr) {
-    if (state->stack < state->memory) {
-        exit(1);
-    }
-    memptr *destination = (memptr*)state->stack;
-    *destination = ptr;
-    state->stack -= sizeof(memptr);
+Short GetShortArg(StatePtr state) {
+    Short value = *((Short*)state->args);
+    state->args += sizeof(Short);
+    return value;
 }
 
+void PushShortToStack(StatePtr state) {
+    if (state->stack < state->memory) {
+        puts("virtual stack overflow\n");
+        exit(1);
+    }
+    Short *destination = (Short*)state->stack;
+    *destination = GetShortArg(state);
+    state->stack -= sizeof(Short);
+}
+
+
 void PassToPutS(struct State* state) {
-    char* ptr = (char*)(PopPtrFromStack(state)+state->memory);
+    char* ptr = (char*)(PopShortFromStack(state)+state->memory);
     puts(ptr);
 }
 
+void InitState(StatePtr state, MemPtr memory, int sizeOfMemory) {
+    state->stack = memory+sizeOfMemory;
+    state->memory = memory;
+    state->PC = memory;
+    state->args = memory;
+}
+
+void NextInstruction(StatePtr state) {
+    struct APICall *apiCall = &ApiCallsList[*state->PC];
+    state->args = state->PC + 1;
+    state->PC += 1 + apiCall->opsSize;
+    apiCall->call(state);
+}
+
+int IndexOfCall(char* callName) {
+    struct APICall *walker = ApiCallsList;
+    int i=0;
+    for(;;) {
+        if (0 == strcmp(callName, walker->name)) {
+            return i;
+        }
+        else {
+            if (NULL == (++walker)->call) {
+                break;
+            }
+            else {
+                i+=1;
+            }
+        }
+    };
+    
+    puts("Unknown api call ");
+    puts(callName);
+    puts("\n");
+    exit(1);
+
+}
+
+void PutCall(CompilationStatePtr compilationState, char* callName) {
+    int apiCallIndex = IndexOfCall(callName);
+    compilationState->argsToPush += ApiCallsList[apiCallIndex].opsSize;
+    *(compilationState->PC++) = apiCallIndex;
+}
+
+void PutShort(CompilationStatePtr compilationState, Short value) {
+    Short* dest = (Short*)compilationState->PC;
+    *dest = value;
+    compilationState->PC += sizeof(Short);
+    compilationState->argsToPush -= sizeof(Short);
+}
+
+void InitCompilationState(CompilationStatePtr compilationState, MemPtr memory, int size) {
+    compilationState->argsToPush = 0;
+    compilationState->memory = memory;
+    compilationState->PC = memory;
+    compilationState->endOfMemory = memory+size;
+}
 
 int main(int argc, const char * argv[]) {
     struct State state;
+    struct CompilationState compilationState;
     byte memory[1024];
-    state.stack = memory+sizeof(memory);
-    state.memory = memory;
+
     char* string = "HelloWorld\n";
-    int len = strlen(string);
-    memcpy(memory, string, len);
+    long len = strlen(string);
+    memcpy(memory+32, string, len);
     
-    PushPtrToStack(&state, 0);
-    PassToPutS(&state);
+    InitState(&state, memory, sizeof(memory));
+    InitCompilationState(&compilationState, memory, sizeof(memory));
+
+    PutCall(&compilationState, "PushShortToStack");
+    PutShort(&compilationState, 32);
+    NextInstruction(&state);
+
+    
+    PutCall(&compilationState, "PassToPutS");
+    NextInstruction(&state);
     
     return 0;
 }

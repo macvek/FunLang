@@ -45,6 +45,11 @@ void LoadShort1B(StatePtr state);
 void Jump1S(StatePtr state);
 void JumpIf1S(StatePtr state);
 void CompareBytes0(StatePtr state);
+void CompareShorts0(StatePtr state);
+void IncByte0(StatePtr state);
+void IncShort0(StatePtr state);
+void DecByte0(StatePtr state);
+void DecShort0(StatePtr state);
 
 void PushByteToStack(StatePtr state, Byte value);
 
@@ -68,6 +73,11 @@ struct APICall ApiCallsList[] = {
     {"Jump", &Jump1S, sizeof(Short)},
     {"JumpIf", &JumpIf1S, sizeof(Short)},
     {"CompareBytes", &CompareBytes0, 0},
+    {"CompareShorts", &CompareShorts0, 0},
+    {"IncByte", &IncByte0, 0},
+    {"DecByte", &DecByte0, 0},
+    {"IncShort", &IncShort0, 0},
+    {"DecShort", &DecShort0, 0},
     {NULL,NULL,-1}
 };
 
@@ -132,6 +142,10 @@ void CompareBytes0(StatePtr state) {
     PushByteToStack(state, PopByteFromStack(state) == PopByteFromStack(state));
 }
 
+void CompareShorts0(StatePtr state) {
+    PushByteToStack(state, PopShortFromStack(state) == PopShortFromStack(state));
+}
+
 void PushByteToStack(StatePtr state, Byte value) {
     StackBoundaryCheck(state, sizeof(Byte));
     state->stackPtr -= sizeof(Byte);
@@ -165,6 +179,21 @@ void ReleaseStack0(StatePtr state) {
     PopStackByNBytes(state, reservedSize * sizeof(Short));
     Short parentFrame = PopShortFromStack(state);
     state->stackFrame = parentFrame;
+}
+
+void IncByte0(StatePtr state) {
+    PushByteToStack(state, 1 + PopByteFromStack(state));
+}
+
+void IncShort0(StatePtr state) {
+    PushShortToStack(state, 1 + PopShortFromStack(state));
+}
+
+void DecByte0(StatePtr state) {
+    PushByteToStack(state, PopByteFromStack(state) - 1);
+}
+void DecShort0(StatePtr state) {
+    PushShortToStack(state, PopShortFromStack(state) - 1);
 }
 
 Short* GetFramePtr(StatePtr state, int index) {
@@ -350,6 +379,76 @@ int main(int argc, const char * argv[]) {
     
     PutCall(&compilationState, "ZeroOpcodeFail");
     
+    NextInstruction(&state);
+    
+    PutCall(&compilationState, "PushShortToStack");
+    PutShort(&compilationState, 2000);
+    NextInstruction(&state);
+    
+    PutCall(&compilationState, "PushShortToStack");
+    PutShort(&compilationState, 2000);
+    NextInstruction(&state);
+    
+    PutCall(&compilationState, "CompareShorts");
+    NextInstruction(&state);
+    
+    PutCall(&compilationState, "JumpIf");
+    PutShort(&compilationState, CodeSizeForInstruction("ZeroOpcodeFail"));
+    
+    PutCall(&compilationState, "ZeroOpcodeFail");
+    
+    NextInstruction(&state);
+
+    PutCall(&compilationState, "PushShortToStack");
+    PutShort(&compilationState, 100);
+    NextInstruction(&state);
+    
+    PutCall(&compilationState, "StoreByte");
+    PutByte(&compilationState, 1);
+    NextInstruction(&state);
+    
+    PutCall(&compilationState, "LoadByte");
+    PutByte(&compilationState, 1);
+    NextInstruction(&state);
+    
+    PutCall(&compilationState, "IncByte");
+    NextInstruction(&state);
+    
+    PutCall(&compilationState, "DecByte");
+    NextInstruction(&state);
+    
+    PutCall(&compilationState, "LoadByte");
+    PutByte(&compilationState, 1);
+    NextInstruction(&state);
+    
+    PutCall(&compilationState, "CompareBytes");
+    NextInstruction(&state);
+    
+    PutCall(&compilationState, "JumpIf");
+    PutShort(&compilationState, CodeSizeForInstruction("ZeroOpcodeFail"));
+    PutCall(&compilationState, "ZeroOpcodeFail");
+    NextInstruction(&state);
+    
+    PutCall(&compilationState, "LoadShort");
+    PutByte(&compilationState, 1);
+    NextInstruction(&state);
+    
+    PutCall(&compilationState, "IncShort");
+    NextInstruction(&state);
+    
+    PutCall(&compilationState, "DecShort");
+    NextInstruction(&state);
+    
+    PutCall(&compilationState, "LoadShort");
+    PutByte(&compilationState, 1);
+    NextInstruction(&state);
+    
+    PutCall(&compilationState, "CompareShorts");
+    NextInstruction(&state);
+    
+    PutCall(&compilationState, "JumpIf");
+    PutShort(&compilationState, CodeSizeForInstruction("ZeroOpcodeFail"));
+    PutCall(&compilationState, "ZeroOpcodeFail");
     NextInstruction(&state);
     
     PutCall(&compilationState, "ReleaseStack");

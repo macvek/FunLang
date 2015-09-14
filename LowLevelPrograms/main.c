@@ -46,9 +46,7 @@ void Jump1S(StatePtr state);
 void JumpIf1S(StatePtr state);
 void CompareBytes0(StatePtr state);
 void CompareShorts0(StatePtr state);
-void IncByte0(StatePtr state);
 void IncShort0(StatePtr state);
-void DecByte0(StatePtr state);
 void DecShort0(StatePtr state);
 
 void PushByteToStack(StatePtr state, Byte value);
@@ -74,8 +72,6 @@ struct APICall ApiCallsList[] = {
     {"JumpIf", &JumpIf1S, sizeof(Short)},
     {"CompareBytes", &CompareBytes0, 0},
     {"CompareShorts", &CompareShorts0, 0},
-    {"IncByte", &IncByte0, 0},
-    {"DecByte", &DecByte0, 0},
     {"IncShort", &IncShort0, 0},
     {"DecShort", &DecShort0, 0},
     {NULL,NULL,-1}
@@ -405,28 +401,6 @@ int main(int argc, const char * argv[]) {
     
     PutCall(&compilationState, "StoreByte");
     PutByte(&compilationState, 1);
-    NextInstruction(&state);
-    
-    PutCall(&compilationState, "LoadByte");
-    PutByte(&compilationState, 1);
-    NextInstruction(&state);
-    
-    PutCall(&compilationState, "IncByte");
-    NextInstruction(&state);
-    
-    PutCall(&compilationState, "DecByte");
-    NextInstruction(&state);
-    
-    PutCall(&compilationState, "LoadByte");
-    PutByte(&compilationState, 1);
-    NextInstruction(&state);
-    
-    PutCall(&compilationState, "CompareBytes");
-    NextInstruction(&state);
-    
-    PutCall(&compilationState, "JumpIf");
-    PutShort(&compilationState, CodeSizeForInstruction("ZeroOpcodeFail"));
-    PutCall(&compilationState, "ZeroOpcodeFail");
     NextInstruction(&state);
     
     PutCall(&compilationState, "LoadShort");

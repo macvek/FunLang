@@ -43,6 +43,10 @@ void StoreShort1B(StatePtr state);
 void LoadByte1B(StatePtr state);
 void LoadShort1B(StatePtr state);
 void Jump1S(StatePtr state);
+void JumpIf1S(StatePtr state);
+void CompareBytes0(StatePtr state);
+
+void PushByteToStack(StatePtr state, Byte value);
 
 struct APICall {
     char* name;
@@ -62,6 +66,8 @@ struct APICall ApiCallsList[] = {
     {"LoadByte", &LoadByte1B, sizeof(Byte)},
     {"LoadShort", &LoadShort1B, sizeof(Byte)},
     {"Jump", &Jump1S, sizeof(Short)},
+    {"JumpIf", &JumpIf1S, sizeof(Short)},
+    {"CompareBytes", &CompareBytes0, 0},
     {NULL,NULL,-1}
 };
 
@@ -112,8 +118,18 @@ void Jump1S(StatePtr state) {
     state->PC += (SignedShort)GetShortArg(state);
 }
 
+void JumpIf1S(StatePtr state) {
+    if (PopByteFromStack(state) == 1) {
+        Jump1S(state);
+    }
+}
+
 void PushShortToStack1S(StatePtr state) {
     PushShortToStack(state, GetShortArg(state));
+}
+
+void CompareBytes0(StatePtr state) {
+    PushByteToStack(state, PopByteFromStack(state) == PopByteFromStack(state));
 }
 
 void PushByteToStack(StatePtr state, Byte value) {
@@ -255,7 +271,7 @@ int main(int argc, const char * argv[]) {
 
     char* string = "HelloWorld\n";
     long len = strlen(string);
-    memcpy(memory+32, string, len);
+    memcpy(memory+256, string, len);
     
     int argNum = 0;
     
@@ -267,7 +283,7 @@ int main(int argc, const char * argv[]) {
     NextInstruction(&state);
     
     PutCall(&compilationState, "PushShortToStack");
-    PutShort(&compilationState, 32);
+    PutShort(&compilationState, 256);
     NextInstruction(&state);
     
     PutCall(&compilationState, "StoreShort");
@@ -285,9 +301,15 @@ int main(int argc, const char * argv[]) {
     PutCall(&compilationState, "LoadShort");
     PutByte(&compilationState, argNum);
     NextInstruction(&state);
-
-    PutCall(&compilationState, "Jump");
-    PutShort(&compilationState, CodeSizeForInstruction("Jump"));
+    
+    PutCall(&compilationState, "PushByteToStack");
+    PutByte(&compilationState, 1);
+    NextInstruction(&state);
+    
+    PutCall(&compilationState, "JumpIf");
+    PutShort(&compilationState, CodeSizeForInstruction("ZeroOpcodeFail") + CodeSizeForInstruction("Jump"));
+    
+    PutCall(&compilationState, "ZeroOpcodeFail");
     
     PutCall(&compilationState, "Jump");
     PutShort(&compilationState, CodeSizeForInstruction("Jump") + CodeSizeForInstruction("ZeroOpcodeFail"));
@@ -302,6 +324,32 @@ int main(int argc, const char * argv[]) {
     NextInstruction(&state);
     NextInstruction(&state);
     NextInstruction(&state);
+    NextInstruction(&state);
+    
+    PutCall(&compilationState, "PushByteToStack");
+    PutByte(&compilationState, 0);
+    NextInstruction(&state);
+
+    PutCall(&compilationState, "JumpIf");
+    PutShort(&compilationState, (SignedShort)(-CodeSizeForInstruction("JumpIf")) );
+    NextInstruction(&state);
+    
+    PutCall(&compilationState, "PushByteToStack");
+    PutByte(&compilationState, 2);
+    NextInstruction(&state);
+    
+    PutCall(&compilationState, "PushByteToStack");
+    PutByte(&compilationState, 2);
+    NextInstruction(&state);
+    
+    PutCall(&compilationState, "CompareBytes");
+    NextInstruction(&state);
+    
+    PutCall(&compilationState, "JumpIf");
+    PutShort(&compilationState, CodeSizeForInstruction("ZeroOpcodeFail"));
+    
+    PutCall(&compilationState, "ZeroOpcodeFail");
+    
     NextInstruction(&state);
     
     PutCall(&compilationState, "ReleaseStack");

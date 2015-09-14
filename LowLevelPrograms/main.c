@@ -12,6 +12,7 @@
 
 typedef unsigned char Byte;
 typedef unsigned short Short;
+typedef short SignedShort;
 typedef Byte* MemPtr;
 
 typedef struct State {
@@ -41,6 +42,7 @@ void StoreByte1B(StatePtr state);
 void StoreShort1B(StatePtr state);
 void LoadByte1B(StatePtr state);
 void LoadShort1B(StatePtr state);
+void Jump1S(StatePtr state);
 
 struct APICall {
     char* name;
@@ -59,6 +61,7 @@ struct APICall ApiCallsList[] = {
     {"StoreShort", &StoreShort1B, sizeof(Byte)},
     {"LoadByte", &LoadByte1B, sizeof(Byte)},
     {"LoadShort", &LoadShort1B, sizeof(Byte)},
+    {"Jump", &Jump1S, sizeof(Short)},
     {NULL,NULL,-1}
 };
 
@@ -103,6 +106,10 @@ void PushShortToStack(StatePtr state, Short value) {
 void ZeroOpcodeFail0(StatePtr state) {
     puts("ZeroOpcodeFail triggered");
     exit(1);
+}
+
+void Jump1S(StatePtr state) {
+    state->PC += (SignedShort)GetShortArg(state);
 }
 
 void PushShortToStack1S(StatePtr state) {
@@ -235,6 +242,11 @@ void InitState(StatePtr state, MemPtr memory, int sizeOfMemory) {
     state->args = memory;
 }
 
+
+int CodeSizeForInstruction(char* instruction) {
+    return 1 + ApiCallsList[IndexOfCall(instruction)].opsSize;
+}
+
 int main(int argc, const char * argv[]) {
     struct State state;
     struct CompilationState compilationState;
@@ -274,7 +286,22 @@ int main(int argc, const char * argv[]) {
     PutByte(&compilationState, argNum);
     NextInstruction(&state);
 
+    PutCall(&compilationState, "Jump");
+    PutShort(&compilationState, CodeSizeForInstruction("Jump"));
+    
+    PutCall(&compilationState, "Jump");
+    PutShort(&compilationState, CodeSizeForInstruction("Jump") + CodeSizeForInstruction("ZeroOpcodeFail"));
+    
+    PutCall(&compilationState, "Jump");
+    PutShort(&compilationState, (SignedShort)(- CodeSizeForInstruction("Jump")*2));
+    
+    PutCall(&compilationState, "ZeroOpcodeFail");
+    
     PutCall(&compilationState, "PassToPutS");
+
+    NextInstruction(&state);
+    NextInstruction(&state);
+    NextInstruction(&state);
     NextInstruction(&state);
     
     PutCall(&compilationState, "ReleaseStack");

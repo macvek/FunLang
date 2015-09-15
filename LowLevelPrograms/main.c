@@ -10,9 +10,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef unsigned char Byte;
-typedef unsigned short Short;
-typedef short SignedShort;
+typedef char Byte;
+typedef short Short;
+typedef unsigned short MemShort;
 typedef Byte* MemPtr;
 
 typedef struct State {
@@ -21,7 +21,7 @@ typedef struct State {
     MemPtr endOfProgram;
     MemPtr args;
     MemPtr PC;
-    Short stackFrame;
+    MemShort stackFrame;
 } *StatePtr ;
 
 typedef struct CompilationState {
@@ -46,8 +46,14 @@ void Jump1S(StatePtr state);
 void JumpIf1S(StatePtr state);
 void CompareBytes0(StatePtr state);
 void CompareShorts0(StatePtr state);
-void IncShort0(StatePtr state);
-void DecShort0(StatePtr state);
+void Inc0(StatePtr state);
+void Dec0(StatePtr state);
+void Add0(StatePtr state);
+void Sub0(StatePtr state);
+void Mul0(StatePtr state);
+void Div0(StatePtr state);
+void DupShort0(StatePtr state);
+void DupByte0(StatePtr state);
 
 void PushByteToStack(StatePtr state, Byte value);
 
@@ -72,8 +78,14 @@ struct APICall ApiCallsList[] = {
     {"JumpIf", &JumpIf1S, sizeof(Short)},
     {"CompareBytes", &CompareBytes0, 0},
     {"CompareShorts", &CompareShorts0, 0},
-    {"IncShort", &IncShort0, 0},
-    {"DecShort", &DecShort0, 0},
+    {"Inc", &Inc0, 0},
+    {"Dec", &Dec0, 0},
+    {"Add", &Add0, 0},
+    {"Sub", &Sub0, 0},
+    {"Mul", &Mul0, 0},
+    {"Div", &Div0, 0},
+    {"DupShort", &DupShort0, 0},
+    {"DupByte", &DupByte0, 0},
     {NULL,NULL,-1}
 };
 
@@ -82,6 +94,7 @@ Short PopShortFromStack(StatePtr state) {
     state->stackPtr += sizeof(Short);
     return value;
 }
+
 
 Byte PopByteFromStack(StatePtr state) {
     Byte value = *(Byte*)state->stackPtr;
@@ -121,7 +134,7 @@ void ZeroOpcodeFail0(StatePtr state) {
 }
 
 void Jump1S(StatePtr state) {
-    state->PC += (SignedShort)GetShortArg(state);
+    state->PC += GetShortArg(state);
 }
 
 void JumpIf1S(StatePtr state) {
@@ -177,19 +190,41 @@ void ReleaseStack0(StatePtr state) {
     state->stackFrame = parentFrame;
 }
 
-void IncByte0(StatePtr state) {
-    PushByteToStack(state, 1 + PopByteFromStack(state));
-}
-
-void IncShort0(StatePtr state) {
+void Inc0(StatePtr state) {
     PushShortToStack(state, 1 + PopShortFromStack(state));
 }
 
-void DecByte0(StatePtr state) {
-    PushByteToStack(state, PopByteFromStack(state) - 1);
-}
-void DecShort0(StatePtr state) {
+void Dec0(StatePtr state) {
     PushShortToStack(state, PopShortFromStack(state) - 1);
+}
+
+void Add0(StatePtr state) {
+    PushShortToStack(state, PopShortFromStack(state) + PopShortFromStack(state));
+}
+
+void Sub0(StatePtr state) {
+    Short b = PopShortFromStack(state);
+    Short a = PopShortFromStack(state);
+
+    PushShortToStack(state, a - b);
+}
+
+void Mul0(StatePtr state) {
+    PushShortToStack(state, PopShortFromStack(state) * PopShortFromStack(state));
+}
+
+void Div0(StatePtr state) {
+    Short b = PopShortFromStack(state);
+    Short a = PopShortFromStack(state);
+    PushShortToStack(state, a / b);
+}
+
+void DupShort0(StatePtr state) {
+    PushShortToStack(state, *state->stackPtr);
+}
+
+void DupByte0(StatePtr state) {
+    PushByteToStack(state, *state->stackPtr);
 }
 
 Short* GetFramePtr(StatePtr state, int index) {
@@ -215,6 +250,14 @@ void LoadShort1B(StatePtr state) {
 void PassToPutS0(struct State* state) {
     char* ptr = (char*)(PopShortFromStack(state)+state->memory);
     puts(ptr);
+}
+
+void AssertStackTopShort(struct State* state, Short expected) {
+    Short topStack = *(Short*)state->stackPtr;
+    if (expected != topStack) {
+        printf("AssertStackTopShort failed, got %i expected %i\n",topStack, expected);
+        exit(2);
+    }
 }
 
 void NextInstruction(StatePtr state) {
@@ -248,6 +291,11 @@ int IndexOfCall(char* callName) {
 
 }
 
+void AdvanceArgsByBytes(CompilationStatePtr compilationState, int bytes) {
+    compilationState->PC += bytes;
+    compilationState->argsToPush -= bytes;
+}
+
 void PutCall(CompilationStatePtr compilationState, char* callName) {
     int apiCallIndex = IndexOfCall(callName);
     compilationState->argsToPush += ApiCallsList[apiCallIndex].opsSize;
@@ -257,15 +305,13 @@ void PutCall(CompilationStatePtr compilationState, char* callName) {
 void PutShort(CompilationStatePtr compilationState, Short value) {
     Short* dest = (Short*)compilationState->PC;
     *dest = value;
-    compilationState->PC += sizeof(Short);
-    compilationState->argsToPush -= sizeof(Short);
+    AdvanceArgsByBytes(compilationState, sizeof(Short));
 }
 
 void PutByte(CompilationStatePtr compilationState, Byte value) {
     Byte* dest = (Byte*)compilationState->PC;
     *dest = value;
-    compilationState->PC += sizeof(Byte);
-    compilationState->argsToPush -= sizeof(Byte);
+    AdvanceArgsByBytes(compilationState, sizeof(Byte));
 }
 
 void InitCompilationState(CompilationStatePtr compilationState, MemPtr memory, int size) {
@@ -340,7 +386,7 @@ int main(int argc, const char * argv[]) {
     PutShort(&compilationState, CodeSizeForInstruction("Jump") + CodeSizeForInstruction("ZeroOpcodeFail"));
     
     PutCall(&compilationState, "Jump");
-    PutShort(&compilationState, (SignedShort)(- CodeSizeForInstruction("Jump")*2));
+    PutShort(&compilationState, -CodeSizeForInstruction("Jump")*2);
     
     PutCall(&compilationState, "ZeroOpcodeFail");
     
@@ -356,7 +402,7 @@ int main(int argc, const char * argv[]) {
     NextInstruction(&state);
 
     PutCall(&compilationState, "JumpIf");
-    PutShort(&compilationState, (SignedShort)(-CodeSizeForInstruction("JumpIf")) );
+    PutShort(&compilationState, -CodeSizeForInstruction("JumpIf") );
     NextInstruction(&state);
     
     PutCall(&compilationState, "PushByteToStack");
@@ -407,10 +453,10 @@ int main(int argc, const char * argv[]) {
     PutByte(&compilationState, 1);
     NextInstruction(&state);
     
-    PutCall(&compilationState, "IncShort");
+    PutCall(&compilationState, "Inc");
     NextInstruction(&state);
     
-    PutCall(&compilationState, "DecShort");
+    PutCall(&compilationState, "Dec");
     NextInstruction(&state);
     
     PutCall(&compilationState, "LoadShort");
@@ -424,9 +470,82 @@ int main(int argc, const char * argv[]) {
     PutShort(&compilationState, CodeSizeForInstruction("ZeroOpcodeFail"));
     PutCall(&compilationState, "ZeroOpcodeFail");
     NextInstruction(&state);
+
+    PutCall(&compilationState, "LoadShort");
+    PutByte(&compilationState, 1);
+    NextInstruction(&state);
+    
+    PutCall(&compilationState, "DupShort");
+    NextInstruction(&state);
+    
+    PutCall(&compilationState, "CompareShorts");
+    NextInstruction(&state);
+    PutCall(&compilationState, "JumpIf");
+    PutShort(&compilationState, CodeSizeForInstruction("ZeroOpcodeFail"));
+    PutCall(&compilationState, "ZeroOpcodeFail");
+    NextInstruction(&state);
+    
+    PutCall(&compilationState, "LoadByte");
+    PutByte(&compilationState, 1);
+    NextInstruction(&state);
+    
+    PutCall(&compilationState, "DupByte");
+    NextInstruction(&state);
+    
+    PutCall(&compilationState, "CompareBytes");
+    NextInstruction(&state);
+    PutCall(&compilationState, "JumpIf");
+    PutShort(&compilationState, CodeSizeForInstruction("ZeroOpcodeFail"));
+    PutCall(&compilationState, "ZeroOpcodeFail");
+    NextInstruction(&state);
+    
+    PutCall(&compilationState, "LoadShort");
+    PutByte(&compilationState, 1);
+    NextInstruction(&state);
+    
+    PutCall(&compilationState, "DupShort");
+    NextInstruction(&state);
+
+    PutCall(&compilationState, "Add");
+    NextInstruction(&state);
+    
+    AssertStackTopShort(&state, 200);
+
+    PutCall(&compilationState, "PushShortToStack");
+    PutShort(&compilationState, -2);
+    NextInstruction(&state);
+
+    AssertStackTopShort(&state, -2);
+    
+    PutCall(&compilationState, "Mul");
+    NextInstruction(&state);
+    
+    AssertStackTopShort(&state, -400);
+    
+    PutCall(&compilationState, "PushShortToStack");
+    PutShort(&compilationState, -4);
+    NextInstruction(&state);
+    
+    PutCall(&compilationState, "Div");
+    NextInstruction(&state);
+    
+    AssertStackTopShort(&state, 100);
+    
+    PutCall(&compilationState, "PushShortToStack");
+    PutShort(&compilationState, 99);
+    NextInstruction(&state);
+    
+    PutCall(&compilationState, "Sub");
+    NextInstruction(&state);
+    
+    AssertStackTopShort(&state, 1);
+    
+    
     
     PutCall(&compilationState, "ReleaseStack");
     NextInstruction(&state);
+    
+    printf("Application size: %d\n", (int)(compilationState.PC - compilationState.memory));
     
     return 0;
 }

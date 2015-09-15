@@ -35,9 +35,10 @@ typedef void (*apicall)(StatePtr);
 void ZeroOpcodeFail0(StatePtr);
 void PassToPutS0(StatePtr);
 void PushShortToStack1S(StatePtr);
+void Call0(StatePtr);
 void ReserveStack1B(StatePtr);
 void PushByteToStack1B(StatePtr state);
-void ReleaseStack0(StatePtr state);
+void MethodExit0(StatePtr state);
 void StoreByte1B(StatePtr state);
 void StoreShort1B(StatePtr state);
 void LoadByte1B(StatePtr state);
@@ -69,7 +70,8 @@ struct APICall ApiCallsList[] = {
     {"PushShortToStack", &PushShortToStack1S, sizeof(Short)},
     {"PushByteToStack", &PushByteToStack1B, sizeof(Byte)},
     {"ReserveStack", &ReserveStack1B, sizeof(Byte)},
-    {"ReleaseStack", &ReleaseStack0, 0},
+    {"Call", &Call0},
+    {"MethodExit", &MethodExit0, 0},
     {"StoreByte", &StoreByte1B, sizeof(Byte)},
     {"StoreShort", &StoreShort1B, sizeof(Byte)},
     {"LoadByte", &LoadByte1B, sizeof(Byte)},
@@ -174,20 +176,37 @@ void PopStackByNBytes(StatePtr state, Byte nBytes) {
     state->stackPtr += nBytes;
 }
 
+Short MemOffsetPC(StatePtr state) {
+    return (Short)(state->PC - state->memory);
+}
+
+void SetMemOffsetPC(StatePtr state, Short pcOffset) {
+    state->PC = (MemPtr)(state->memory + pcOffset);
+}
+
+void Call0(StatePtr state) {
+    Short newPC = PopShortFromStack(state);
+    PushShortToStack(state, MemOffsetPC(state));
+    SetMemOffsetPC(state, newPC);
+}
+
 void ReserveStack1B(StatePtr state) {
     PushShortToStack(state, state->stackFrame);
     state->stackFrame = state->stackPtr - state->memory;
     Byte reservedSize = GetByteArg(state);
-   
+    
     PushStackByNBytes(state, reservedSize*sizeof(Short));
     PushByteToStack(state, reservedSize);
 }
 
-void ReleaseStack0(StatePtr state) {
+void MethodExit0(StatePtr state) {
     Byte reservedSize = PopByteFromStack(state);
+    
     PopStackByNBytes(state, reservedSize * sizeof(Short));
+    
     Short parentFrame = PopShortFromStack(state);
     state->stackFrame = parentFrame;
+    SetMemOffsetPC(state, PopShortFromStack(state));
 }
 
 void Inc0(StatePtr state) {
@@ -540,11 +559,38 @@ int main(int argc, const char * argv[]) {
     
     AssertStackTopShort(&state, 1);
     
+    MemPtr mainPC = compilationState.PC;
+    {
+        compilationState.PC = compilationState.memory + 128;
+        
+        PutCall(&compilationState, "ReserveStack");
+        PutByte(&compilationState, 0);
+
+        PutCall(&compilationState, "PushShortToStack");
+        PutShort(&compilationState, 256);
+        
+        PutCall(&compilationState, "PassToPutS");
+        
+        PutCall(&compilationState, "MethodExit");
+    }
+    compilationState.PC = mainPC;
+
     
-    
-    PutCall(&compilationState, "ReleaseStack");
+    PutCall(&compilationState, "PushShortToStack");
+    PutShort(&compilationState, 128);
     NextInstruction(&state);
     
+    PutCall(&compilationState, "Call");
+    NextInstruction(&state);
+    
+    NextInstruction(&state);
+    NextInstruction(&state);
+    NextInstruction(&state);
+    NextInstruction(&state);
+    
+    PutCall(&compilationState, "MethodExit");
+    NextInstruction(&state);
+        
     printf("Application size: %d\n", (int)(compilationState.PC - compilationState.memory));
     
     return 0;

@@ -11,9 +11,10 @@
 #include <string.h>
 
 typedef char Byte;
+typedef unsigned char Mem;
 typedef short Short;
 typedef unsigned short MemShort;
-typedef Byte* MemPtr;
+typedef Mem* MemPtr;
 
 typedef struct State {
     MemPtr stackPtr;
@@ -36,9 +37,11 @@ void ZeroOpcodeFail0(StatePtr);
 void PassToPutS0(StatePtr);
 void PushShortToStack1S(StatePtr);
 void Call0(StatePtr);
-void ReserveStack1B(StatePtr);
+void CallArg1S(StatePtr);
+void MethodEnter1B(StatePtr);
 void PushByteToStack1B(StatePtr state);
 void MethodExit0(StatePtr state);
+void MethodReturn1B(StatePtr state);
 void StoreByte1B(StatePtr state);
 void StoreShort1B(StatePtr state);
 void LoadByte1B(StatePtr state);
@@ -55,8 +58,11 @@ void Mul0(StatePtr state);
 void Div0(StatePtr state);
 void DupShort0(StatePtr state);
 void DupByte0(StatePtr state);
+void SetupArgsStack0(StatePtr state);
+void SetupFrameStack0(StatePtr state);
 
 void PushByteToStack(StatePtr state, Byte value);
+MemPtr GetFramePtr(StatePtr state);
 
 struct APICall {
     char* name;
@@ -69,9 +75,11 @@ struct APICall ApiCallsList[] = {
     {"PassToPutS", &PassToPutS0, 0},
     {"PushShortToStack", &PushShortToStack1S, sizeof(Short)},
     {"PushByteToStack", &PushByteToStack1B, sizeof(Byte)},
-    {"ReserveStack", &ReserveStack1B, sizeof(Byte)},
-    {"Call", &Call0},
+    {"MethodEnter", &MethodEnter1B, sizeof(Byte)},
+    {"Call", &Call0, 0},
+    {"CallArg", &CallArg1S, sizeof(Short)},
     {"MethodExit", &MethodExit0, 0},
+    {"MethodReturn", &MethodReturn1B, sizeof(Byte)},
     {"StoreByte", &StoreByte1B, sizeof(Byte)},
     {"StoreShort", &StoreShort1B, sizeof(Byte)},
     {"LoadByte", &LoadByte1B, sizeof(Byte)},
@@ -88,8 +96,14 @@ struct APICall ApiCallsList[] = {
     {"Div", &Div0, 0},
     {"DupShort", &DupShort0, 0},
     {"DupByte", &DupByte0, 0},
+    {"SetupArgsStack", &SetupArgsStack0, 0},
+    {"SetupFrameStack", &SetupFrameStack0, 0},
     {NULL,NULL,-1}
 };
+
+#define SIZEOF_LOCALALLOCSIZE sizeof(Byte)
+#define SIZEOF_CALLPAYLOAD sizeof(Short)+sizeof(Short)+sizeof(Short)
+
 
 Short PopShortFromStack(StatePtr state) {
     Short value = *(Short*)state->stackPtr;
@@ -168,8 +182,9 @@ void PushByteToStack1B(StatePtr state) {
     PushByteToStack(state, GetByteArg(state));
 }
 
-void PushStackByNBytes(StatePtr state, Byte nBytes) {
+void PushStackByNZeroBytes(StatePtr state, Byte nBytes) {
     state->stackPtr -= nBytes;
+    memset(state->stackPtr, 0, nBytes);
 }
 
 void PopStackByNBytes(StatePtr state, Byte nBytes) {
@@ -180,33 +195,86 @@ Short MemOffsetPC(StatePtr state) {
     return (Short)(state->PC - state->memory);
 }
 
+Short MemOffsetStackPtr(StatePtr state) {
+    return (Short)(state->stackPtr - state->memory);
+}
+
 void SetMemOffsetPC(StatePtr state, Short pcOffset) {
     state->PC = (MemPtr)(state->memory + pcOffset);
 }
 
-void Call0(StatePtr state) {
-    Short newPC = PopShortFromStack(state);
+void SetStackPtrFromMemOffset(StatePtr state, Short stackPtrOffset) {
+    state->stackPtr = (MemPtr)(state->memory + stackPtrOffset);
+}
+
+void Call(StatePtr state, Short newPC) {
+    PushShortToStack(state, MemOffsetStackPtr(state));
+    PushShortToStack(state, state->stackFrame);
     PushShortToStack(state, MemOffsetPC(state));
     SetMemOffsetPC(state, newPC);
 }
 
-void ReserveStack1B(StatePtr state) {
-    PushShortToStack(state, state->stackFrame);
-    state->stackFrame = state->stackPtr - state->memory;
+void Call0(StatePtr state) {
+    Call(state, PopShortFromStack(state));
+}
+
+void CallArg1S(StatePtr state) {
+    Call(state, GetShortArg(state));
+}
+
+Byte GetLocalAllocSize(StatePtr state) {
+    return *(Byte*)GetFramePtr(state);
+}
+
+MemPtr GetStoredCallerStackPtr(StatePtr state) {
+    return GetFramePtr(state) + GetLocalAllocSize(state) + SIZEOF_CALLPAYLOAD + SIZEOF_LOCALALLOCSIZE;
+}
+
+void SetupArgsStack0(StatePtr state) {
+    state->stackPtr = GetStoredCallerStackPtr(state);
+}
+
+void SetupFrameStack0(StatePtr state) {
+    //*(Short*)GetStoredCallerStackPtr(state) = MemOffsetStackPtr(state);
+    state->stackPtr = GetFramePtr(state);
+}
+
+void MethodEnter1B(StatePtr state) {
     Byte reservedSize = GetByteArg(state);
-    
-    PushStackByNBytes(state, reservedSize*sizeof(Short));
+
+    PushStackByNZeroBytes(state, reservedSize);
     PushByteToStack(state, reservedSize);
+    
+    state->stackFrame = state->stackPtr - state->memory;
+}
+
+void ReleaseStack(StatePtr state) {
+    PopStackByNBytes(state, PopByteFromStack(state));
+}
+
+void RestoreFromCall(StatePtr state) {
+    SetMemOffsetPC(state, PopShortFromStack(state));
+    state->stackFrame = PopShortFromStack(state);
+    SetStackPtrFromMemOffset(state, PopShortFromStack(state));
+}
+
+
+void MethodExit(StatePtr state) {
+    ReleaseStack(state);
+    RestoreFromCall(state);
 }
 
 void MethodExit0(StatePtr state) {
-    Byte reservedSize = PopByteFromStack(state);
-    
-    PopStackByNBytes(state, reservedSize * sizeof(Short));
-    
-    Short parentFrame = PopShortFromStack(state);
-    state->stackFrame = parentFrame;
-    SetMemOffsetPC(state, PopShortFromStack(state));
+    MethodExit(state);
+}
+
+void MethodReturn1B(StatePtr state) {
+    Mem returnStackSize = (Mem)GetByteArg(state);
+    MemPtr methodStackPtr = state->stackPtr;
+    state->stackPtr += returnStackSize;
+    MethodExit(state);
+    PushStackByNZeroBytes(state, returnStackSize);
+    memcpy(state->stackPtr, methodStackPtr, returnStackSize);
 }
 
 void Inc0(StatePtr state) {
@@ -246,24 +314,28 @@ void DupByte0(StatePtr state) {
     PushByteToStack(state, *state->stackPtr);
 }
 
-Short* GetFramePtr(StatePtr state, int index) {
-    return (Short*)(state->memory + state->stackFrame +  index * sizeof(Short));
+MemPtr GetFramePtr(StatePtr state) {
+    return state->memory + state->stackFrame;
+}
+
+Short* GetLocalAllocPtr(StatePtr state, int index) {
+    return (Short*)(GetFramePtr(state) + SIZEOF_LOCALALLOCSIZE +  index * sizeof(Short));
 }
 
 void StoreByte1B(StatePtr state) {
-    *GetFramePtr(state, GetByteArg(state)) = PopByteFromStack(state);
+    *GetLocalAllocPtr(state, GetByteArg(state)) = PopByteFromStack(state);
 }
 
 void StoreShort1B(StatePtr state) {
-    *GetFramePtr(state, GetByteArg(state)) = PopShortFromStack(state);
+    *GetLocalAllocPtr(state, GetByteArg(state)) = PopShortFromStack(state);
 }
 
 void LoadByte1B(StatePtr state) {
-    PushByteToStack(state, *GetFramePtr(state, GetByteArg(state)));
+    PushByteToStack(state, *GetLocalAllocPtr(state, GetByteArg(state)));
 }
 
 void LoadShort1B(StatePtr state) {
-    PushShortToStack(state, *GetFramePtr(state, GetByteArg(state)));
+    PushShortToStack(state, *GetLocalAllocPtr(state, GetByteArg(state)));
 }
 
 void PassToPutS0(struct State* state) {
@@ -279,11 +351,20 @@ void AssertStackTopShort(struct State* state, Short expected) {
     }
 }
 
+void AssertStackTopByte(struct State* state, Byte expected) {
+    Byte topStack = *(Byte*)state->stackPtr;
+    if (expected != topStack) {
+        printf("AssertStackTopByte failed, got %i expected %i\n",topStack, expected);
+        exit(2);
+    }
+}
+
 void NextInstruction(StatePtr state) {
     struct APICall *apiCall = &ApiCallsList[*state->PC];
     printf("::NextInstruction:: %s\n", apiCall->name);
-    state->args = state->PC + 1;
-    state->PC += 1 + apiCall->opsSize;
+    state->PC += 1;
+    state->args = state->PC;
+    state->PC += apiCall->opsSize;
     apiCall->call(state);
 }
 
@@ -356,24 +437,25 @@ int CodeSizeForInstruction(char* instruction) {
 int main(int argc, const char * argv[]) {
     struct State state;
     struct CompilationState compilationState;
-    Byte memory[512];
+    Mem memory[512];
     memset(memory, 0, sizeof(memory));
 
+    int helloWorldOffset = 256;
     char* string = "HelloWorld\n";
     long len = strlen(string);
-    memcpy(memory+256, string, len);
+    memcpy(memory+helloWorldOffset, string, len);
     
     int argNum = 0;
     
     InitState(&state, memory, sizeof(memory));
     InitCompilationState(&compilationState, memory, sizeof(memory));
     
-    PutCall(&compilationState, "ReserveStack");
-    PutByte(&compilationState, argNum+1);
+    PutCall(&compilationState, "MethodEnter");
+    PutByte(&compilationState, (argNum+1) * sizeof(Short));
     NextInstruction(&state);
     
     PutCall(&compilationState, "PushShortToStack");
-    PutShort(&compilationState, 256);
+    PutShort(&compilationState, helloWorldOffset);
     NextInstruction(&state);
     
     PutCall(&compilationState, "StoreShort");
@@ -559,15 +641,17 @@ int main(int argc, const char * argv[]) {
     
     AssertStackTopShort(&state, 1);
     
+    int methodOffset = 200;
+    
     MemPtr mainPC = compilationState.PC;
     {
-        compilationState.PC = compilationState.memory + 128;
+        compilationState.PC = compilationState.memory + methodOffset;
         
-        PutCall(&compilationState, "ReserveStack");
+        PutCall(&compilationState, "MethodEnter");
         PutByte(&compilationState, 0);
 
         PutCall(&compilationState, "PushShortToStack");
-        PutShort(&compilationState, 256);
+        PutShort(&compilationState, helloWorldOffset);
         
         PutCall(&compilationState, "PassToPutS");
         
@@ -577,7 +661,7 @@ int main(int argc, const char * argv[]) {
 
     
     PutCall(&compilationState, "PushShortToStack");
-    PutShort(&compilationState, 128);
+    PutShort(&compilationState, methodOffset);
     NextInstruction(&state);
     
     PutCall(&compilationState, "Call");
@@ -588,9 +672,56 @@ int main(int argc, const char * argv[]) {
     NextInstruction(&state);
     NextInstruction(&state);
     
+    methodOffset = 200;
+    int argValue = 0x40;
+    
+    PutCall(&compilationState, "PushByteToStack");
+    PutByte(&compilationState, argValue);
+    
+    PutCall(&compilationState, "CallArg");
+    PutShort(&compilationState, methodOffset);
+    
+    mainPC = compilationState.PC;
+    {
+        compilationState.PC = compilationState.memory + methodOffset;
+        
+        PutCall(&compilationState, "MethodEnter");
+        PutByte(&compilationState, 1*sizeof(Short));
+        
+        PutCall(&compilationState, "SetupArgsStack");
+        
+        PutCall(&compilationState, "StoreByte");
+        PutByte(&compilationState, 0);
+        
+        PutCall(&compilationState, "SetupFrameStack");
+        
+        PutCall(&compilationState, "LoadShort");
+        PutByte(&compilationState, 0);
+        
+        PutCall(&compilationState, "MethodReturn");
+        PutByte(&compilationState, sizeof(Short));
+    }
+    compilationState.PC = mainPC;
+
+    NextInstruction(&state);
+    NextInstruction(&state);
+    NextInstruction(&state);
+    NextInstruction(&state);
+
+    AssertStackTopByte(&state, argValue);
+    NextInstruction(&state);
+
+    NextInstruction(&state);
+    NextInstruction(&state);
+
+    AssertStackTopShort(&state, argValue);
+    NextInstruction(&state);
+    
+    AssertStackTopShort(&state, argValue);
+    
     PutCall(&compilationState, "MethodExit");
     NextInstruction(&state);
-        
+    
     printf("Application size: %d\n", (int)(compilationState.PC - compilationState.memory));
     
     return 0;

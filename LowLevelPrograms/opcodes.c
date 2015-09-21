@@ -343,7 +343,6 @@ void AssertStackTopByte(struct State* state, Byte expected) {
 
 void NextInstruction(StatePtr state) {
     struct APICall *apiCall = &ApiCallsList[*state->PC];
-    printf("::NextInstruction:: %s\n", apiCall->name);
     state->PC += 1;
     state->args = state->PC;
     state->PC += apiCall->opsSize;

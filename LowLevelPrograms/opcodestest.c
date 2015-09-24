@@ -13,7 +13,7 @@
 #include "types.h"
 #include "opcodes.h"
 
-void opcodestest() {
+void OpcodesTest() {
     struct State state;
     struct CompilationState compilationState;
     Mem memory[512];

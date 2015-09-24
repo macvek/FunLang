@@ -372,6 +372,26 @@ int IndexOfCall(char* callName) {
     
 }
 
+void EvaluateMethod(StatePtr state) {
+    int methodExit = IndexOfCall("MethodExit");
+    int methodReturn = IndexOfCall("MethodReturn");
+    int methodEnter = IndexOfCall("MethodEnter");
+    
+    if (*state->PC != methodEnter) {
+        puts("Metoda nie zaczyna sie od MethodEnter");
+        exit(1);
+    }
+    
+    for(;;) {
+        NextInstruction(state);
+        if (*state->PC == methodReturn || *state->PC == methodExit) {
+            NextInstruction(state);
+            break;
+        }
+    }
+}
+
+
 void AdvanceArgsByBytes(CompilationStatePtr compilationState, int bytes) {
     compilationState->PC += bytes;
     compilationState->argsToPush -= bytes;

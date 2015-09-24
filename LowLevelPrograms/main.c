@@ -6,15 +6,11 @@
 //  Copyright (c) 2015 macvek. All rights reserved.
 //
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include "types.h"
-#include "opcodes.h"
 #include "opcodestest.h"
+#include "compilertest.h"
 
 int main(int argc, const char * argv[]) {
-    opcodestest();
+    OpcodesTest();
+    CompilerTest();
     return 0;
 }

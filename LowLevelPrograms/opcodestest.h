@@ -9,6 +9,6 @@
 #ifndef LowLevelPrograms_opcodestest_h
 #define LowLevelPrograms_opcodestest_h
 
-void opcodestest();
+void OpcodesTest();
 
 #endif

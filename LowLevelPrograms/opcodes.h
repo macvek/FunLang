@@ -13,6 +13,7 @@
 
 void InitState(StatePtr state, MemPtr memory, int sizeOfMemory);
 void NextInstruction(StatePtr state);
+void EvaluateMethod(StatePtr state);
 void AssertStackTopByte(struct State* state, Byte expected);
 
 void InitCompilationState(CompilationStatePtr compilationState, MemPtr memory, int size);

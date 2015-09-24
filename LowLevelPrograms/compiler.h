@@ -9,6 +9,7 @@
 #ifndef __LowLevelPrograms__compiler__
 #define __LowLevelPrograms__compiler__
 
-#include <stdio.h>
+#include "opcodes.h"
+void CompileCode(char* sourceCode, int sourceCodeSize, CompilationStatePtr compilationState);
 
 #endif /* defined(__LowLevelPrograms__compiler__) */

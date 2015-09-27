@@ -17,20 +17,56 @@ struct Reader {
     char* cursorLimit;
 };
 
+struct StringRange {
+    char* start;
+    char* end;
+};
+
+void InitReader(struct Reader* reader, char* sourceCode, int limit) {
+    reader->cursor = sourceCode;
+    reader->cursorLimit = sourceCode+limit;
+}
+
+bool CompareStringRanges(struct StringRange* one, struct StringRange *another) {
+    if (one->end - one->start == another->end - another->start) {
+        return 0 == memcmp(one->start, another->start, one->end - one->start);
+    }
+    else {
+        return false;
+    }
+}
+
+bool CompareStringRangeWithString(struct StringRange* one, char* another) {
+    long anotherLength = strlen(another);
+    if (one->end - one->start == anotherLength) {
+        return 0 == memcmp(one->start, another, one->end - one->start);
+    }
+    else {
+        return false;
+    }
+}
+
+
 void SkipWhiteSpaces(struct Reader* reader);
 bool MatchTillNextSpace(struct Reader* reader, const char* source);
 bool MatchAndAdvanceTillNextSpace(struct Reader* reader, const char* source);
 char* NextSpaceInReader(struct Reader* reader);
 char* NextCharInReader(struct Reader* reader, char character);
 bool AdvanceReaderIfStartsWithChar(struct Reader* reader, char character);
+void PrintRange(char* prefix, struct StringRange* range) {
+    long size = range->end - range->start;
+    char text[size];
+    
+    memcpy(text, range->start, size);
+    text[size] = 0;
+    printf("%s: %s\n", prefix, text);
+}
+
 
 struct MethodSignature {
     struct Reader reader;
-    char* typeStart;
-    char* typeEnd;
-    
-    char* nameStart;
-    char* nameEnd;
+    struct StringRange type;
+    struct StringRange name;
     
     char* signatureEnd;
 
@@ -46,15 +82,12 @@ void FindMethodArguments(struct MethodSignature* methodSignature);
 struct ConstSignature {
     struct Reader reader;
     
-    char* typeStart;
-    char* typeEnd;
+    struct StringRange type;
+    struct StringRange name;
+    struct StringRange value;
     
-    char* nameStart;
-    char* nameEnd;
-    
-    char* valueStart;
-    char* valueEnd;
-    
+    Addr allocStart;
+    Addr allocEnd;
     char* signatureEnd;
     bool error;
 };
@@ -65,6 +98,19 @@ void FindConstType(struct ConstSignature* constSignature);
 void FindConstName(struct ConstSignature* constSignature);
 void FindConstValue(struct ConstSignature* constSignature);
 
+struct CallSignature {
+    struct Reader reader;
+    
+    struct StringRange name;
+    struct StringRange arguments;
+    
+    char* signatureEnd;
+    bool error;
+};
+
+struct CallSignature FindCallSignature(char* sourceCode, int limit);
+void FindCallName(struct CallSignature* callSignature);
+void FindCallArgs(struct CallSignature* callSignature);
 
 
 void CompileCode(char* sourceCode, int sourceCodeSize, CompilationStatePtr aCompilationState) {
@@ -82,9 +128,31 @@ void CompileCode(char* sourceCode, int sourceCodeSize, CompilationStatePtr aComp
     }
     struct ConstSignature constSignature = FindConstSignature(readPtr, readLimit);
     if (false == constSignature.error) {
+        readPtr = constSignature.signatureEnd;
+        readLimit = (int)(sourceCodeSize - (readPtr - sourceCode));
+        constSignature.allocStart = 256;
+        constSignature.allocEnd = constSignature.allocStart + constSignature.value.end - constSignature.value.start+1;
+        memcpy(compilationState->memory+constSignature.allocStart,
+               constSignature.value.start,
+               constSignature.value.end - constSignature.value.start);
         
+        constSignature.value.end = 0;
     }
-    
+    struct CallSignature callSignature = FindCallSignature(readPtr, readLimit);
+    if (false == callSignature.error) {
+        if (CompareStringRangeWithString(&callSignature.name, "puts") &&
+            CompareStringRanges(&callSignature.arguments, &constSignature.name)) {
+
+            PutCall(compilationState, "MethodEnter");
+            PutByte(compilationState, 0);
+            
+            PutCall(compilationState, "PushShortToStack");
+            PutShort(compilationState, constSignature.allocStart);
+            PutCall(compilationState, "PassToPutS");
+            
+            PutCall(compilationState, "MethodExit");
+        }
+    }
 }
 
 
@@ -118,7 +186,14 @@ returnStmt:
 }
 
 void SkipWhiteSpaces(struct Reader* reader) {
-    while(*reader->cursor == ' ' && reader->cursor < reader->cursorLimit) {
+    
+    while(reader->cursor < reader->cursorLimit &&
+          (
+           *reader->cursor == ' ' ||
+           *reader->cursor == '\n' ||
+           *reader->cursor == '\r' ||
+           *reader->cursor == '\t'
+          ) ) {
         reader->cursor++;
     }
 }
@@ -148,6 +223,9 @@ char* NextCharInReader(struct Reader* reader, char character) {
     char seek[2];
     seek[0] = character;
     seek[1] = 0;
+    if (reader->cursorLimit <= reader->cursor) {
+        return NULL;
+    }
     char* nextSpace = strnstr(reader->cursor, seek, reader->cursorLimit - reader->cursor);
     return nextSpace < reader->cursorLimit ? nextSpace : NULL;
 }
@@ -158,7 +236,7 @@ char* NextSpaceInReader(struct Reader* reader) {
 }
 
 bool AdvanceReaderIfStartsWithChar(struct Reader* reader, char character) {
-    if (*reader->cursor == character) {
+    if (reader->cursor < reader->cursorLimit && *reader->cursor == character) {
         reader->cursor++;
         return true;
     }
@@ -182,10 +260,10 @@ void FindMethodReturnType(struct MethodSignature* methodSignature) {
         return;
     }
     
-    methodSignature->typeStart = methodSignature->reader.cursor;
-    methodSignature->typeEnd = methodSignature->typeStart + strlen(voidName);
+    methodSignature->type.start = methodSignature->reader.cursor;
+    methodSignature->type.end = methodSignature->type.start + strlen(voidName);
     
-    methodSignature->reader.cursor = methodSignature->typeEnd;
+    methodSignature->reader.cursor = methodSignature->type.end;
 }
 
 void FindMethodName(struct MethodSignature* methodSignature) {
@@ -197,8 +275,8 @@ void FindMethodName(struct MethodSignature* methodSignature) {
         return;
     }
     
-    methodSignature->nameStart = methodSignature->reader.cursor;
-    methodSignature->nameEnd = nextSpace;
+    methodSignature->name.start = methodSignature->reader.cursor;
+    methodSignature->name.end = nextSpace;
     
 }
 
@@ -209,9 +287,7 @@ void FindMethodArguments(struct MethodSignature* methodSignature) {
 struct ConstSignature FindConstSignature(char* sourceCode, int limit) {
     struct ConstSignature constSignature;
     memset(&constSignature, 0, sizeof(constSignature));
-    constSignature.reader.cursor = sourceCode;
-    constSignature.reader.cursorLimit = sourceCode + limit;
-
+    InitReader(&constSignature.reader, sourceCode, limit);
     
     FindConstPrefix(&constSignature);
     if (constSignature.error) {
@@ -230,7 +306,7 @@ struct ConstSignature FindConstSignature(char* sourceCode, int limit) {
     
     FindConstValue(&constSignature);
     if (false == constSignature.error) {
-        constSignature.signatureEnd = constSignature.valueEnd+1;
+        constSignature.signatureEnd = constSignature.value.end+1;
     }
     return constSignature;
 }
@@ -257,8 +333,8 @@ void FindConstName(struct ConstSignature* constSignature) {
         return;
     }
 
-    constSignature->nameStart = constSignature->reader.cursor;
-    constSignature->nameEnd = nextSpace;
+    constSignature->name.start = constSignature->reader.cursor;
+    constSignature->name.end = nextSpace;
     constSignature->reader.cursor = nextSpace;
 }
 
@@ -279,6 +355,52 @@ void FindConstValue(struct ConstSignature* constSignature) {
         return;
     }
     
-    constSignature->valueStart = constSignature->reader.cursor;
-    constSignature->valueEnd = closingParathesis;
+    constSignature->value.start = constSignature->reader.cursor;
+    constSignature->value.end = closingParathesis;
 }
+
+struct CallSignature FindCallSignature(char* sourceCode, int limit) {
+    struct CallSignature callSignature;
+    memset(&callSignature, 0, sizeof(callSignature));
+    InitReader(&callSignature.reader, sourceCode, limit);
+
+    
+    FindCallName(&callSignature);
+    if (callSignature.error) {
+        return callSignature;
+    }
+    
+    FindCallArgs(&callSignature);
+    return callSignature;
+}
+
+void FindCallName(struct CallSignature* callSignature) {
+    SkipWhiteSpaces(&callSignature->reader);
+    char* nextSpace = NextSpaceInReader(&callSignature->reader);
+    if (nextSpace == NULL) {
+        callSignature->error = true;
+    }
+    else {
+        callSignature->name.start = callSignature->reader.cursor;
+        callSignature->name.end = nextSpace;
+        callSignature->reader.cursor = nextSpace;
+    }
+}
+
+void FindCallArgs(struct CallSignature* callSignature) {
+    SkipWhiteSpaces(&callSignature->reader);
+    if (false == AdvanceReaderIfStartsWithChar(&callSignature->reader, '(')) {
+        callSignature->error = true;
+        return;
+    }
+    char* closingBracket = NextCharInReader(&callSignature->reader, ')');
+    if (closingBracket == NULL) {
+        callSignature->error = true;
+    }
+    
+    callSignature->arguments.start = callSignature->reader.cursor;
+    callSignature->arguments.end = closingBracket;
+    
+    callSignature->reader.cursor = closingBracket+1;
+}
+

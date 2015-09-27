@@ -40,11 +40,12 @@ static void testShouldCreateEmpty() {
 }
 
 static void testShouldPrintConstString() {
-    char text[] = "const string someName = 'HelloWorld'\n"
-        "puts(somename)";
+    char text[] = "const string someName = 'YOU SHOULD SEE ME TWICE'\n"
+        "puts (someName)";
     
     CompileCode(text, sizeof(text), &compilationState);
     
     EvaluateMethod(&runtimeState);
+    printf("YOU SHOULD SEE ME TWICE\n");
 }
 

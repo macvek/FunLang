@@ -13,6 +13,7 @@ typedef char Byte;
 typedef unsigned char Mem;
 typedef short Short;
 typedef unsigned short MemShort;
+typedef unsigned short Addr;
 typedef Mem* MemPtr;
 #define false 0
 #define true 1

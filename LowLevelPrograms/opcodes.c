@@ -420,6 +420,7 @@ void InitCompilationState(CompilationStatePtr compilationState, MemPtr memory, i
     compilationState->memory = memory;
     compilationState->PC = memory;
     compilationState->endOfMemory = memory+size;
+    memset(memory, 0, size);
 }
 
 void InitState(StatePtr state, MemPtr memory, int sizeOfMemory) {

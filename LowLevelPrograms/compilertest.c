@@ -15,7 +15,6 @@ static struct State runtimeState;
 
 static void testShouldCreateEmpty();
 static void testShouldPrintConstString();
-static void testShouldCreateMethodWithBody();
 
 void runTest(void (*test)()) {
     Mem memory[1024];
@@ -28,7 +27,6 @@ void runTest(void (*test)()) {
 void CompilerTest() {
     runTest(testShouldCreateEmpty);
     runTest(testShouldPrintConstString);
-    runTest(testShouldCreateMethodWithBody);
 }
 
 static void testShouldCreateEmpty() {
@@ -42,23 +40,14 @@ static void testShouldCreateEmpty() {
 }
 
 static void testShouldPrintConstString() {
-    char text[] = "const string someName = 'YOU SHOULD SEE ME TWICE'\n"
-        "puts (someName)";
+    char text[] = "void method() {\n"
+    "   const string anotherName = 'YOU SHOULD SEE ME TWICE\n"
+    "}\n";
+
     
     CompileCode(text, sizeof(text), &compilationState);
     
     EvaluateMethod(&runtimeState);
     printf("YOU SHOULD SEE ME TWICE\n");
-}
-
-static void testShouldCreateMethodWithBody() {
-    char text[] = "void method() {\n"
-        "   const string anotherName = 'CREATE METHOD WITH BODY'\n"
-        "}\n";
-    
-    CompileCode(text, sizeof(text), &compilationState);
-    
-    EvaluateMethod(&runtimeState);
-    printf("CREATE METHOD WITH BODY\n");
 }
 

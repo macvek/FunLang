@@ -32,6 +32,10 @@ void InitReaderCopy(struct Reader* destination, const struct Reader* source) {
     destination->cursorLimit = source->cursorLimit;
 }
 
+bool IsNotEmptyReader(struct Reader* reader) {
+    return reader->cursor < reader->cursorLimit;
+}
+
 bool CompareStringRanges(struct StringRange* one, struct StringRange *another) {
     if (one->end - one->start == another->end - another->start) {
         return 0 == memcmp(one->start, another->start, one->end - one->start);
@@ -51,6 +55,36 @@ bool CompareStringRangeWithString(struct StringRange* one, char* another) {
     }
 }
 
+void PrintSourceCodeWithMarker(char* sourceCode, char* pointer) {
+    if (*sourceCode == 0) {
+        return;
+    }
+    char* lastLine = sourceCode;
+    for(;;) {
+        if (*sourceCode == '\n' || *sourceCode == 0) {
+            long len = sourceCode-lastLine;
+            char lineToPrint[len+1];
+            memcpy(lineToPrint, lastLine, len);
+            lineToPrint[len] = 0;
+            printf("%s",lineToPrint);
+            
+            if (pointer < sourceCode) {
+                printf("\n");
+                long len = pointer-(lastLine+1);
+                for (int i=0;i<len;i++) {
+                    printf("%c", '-');
+                }
+                printf("%c\n",'^');
+                return;
+            }
+            else {
+                lastLine = sourceCode;
+            }
+        }
+        sourceCode++;
+    }
+
+}
 
 void SkipWhiteSpaces(struct Reader* reader);
 bool MatchTillNextSpace(struct Reader* reader, const char* source);
@@ -82,7 +116,6 @@ struct MethodSignature FindMethodSignature(struct Reader* sourceCodeReader);
 void FindMethodReturnType(struct MethodSignature* methodSignature);
 void FindMethodName(struct MethodSignature* methodSignature);
 void FindMethodArguments(struct MethodSignature* methodSignature);
-
 
 struct ConstSignature {
     struct Reader reader;
@@ -117,6 +150,12 @@ struct CallSignature FindCallSignature(struct Reader* sourceCodeReader);
 void FindCallName(struct CallSignature* callSignature);
 void FindCallArgs(struct CallSignature* callSignature);
 
+struct EndBlockSignature {
+    char* signatureEnd;
+    bool error;
+};
+
+struct EndBlockSignature FindEndBlock(struct Reader* sourceCodeReader);
 
 void CompileCode(char* sourceCode, int sourceCodeSize, CompilationStatePtr aCompilationState) {
     compilationState = aCompilationState;
@@ -124,37 +163,51 @@ void CompileCode(char* sourceCode, int sourceCodeSize, CompilationStatePtr aComp
     sourceCodeReader.cursor = sourceCode;
     sourceCodeReader.cursorLimit = sourceCode+sourceCodeSize;
     
-    struct MethodSignature methodSignature = FindMethodSignature(&sourceCodeReader);
-    if (false == methodSignature.error) {
-        sourceCodeReader.cursor = methodSignature.signatureEnd+1;
-        PutCall(compilationState, "MethodEnter");
-        PutByte(compilationState, 0);
-        PutCall(compilationState, "MethodExit");
-    }
-    struct ConstSignature constSignature = FindConstSignature(&sourceCodeReader);
-    if (false == constSignature.error) {
-        sourceCodeReader.cursor = constSignature.signatureEnd+1;
-        constSignature.allocStart = 256;
-        constSignature.allocEnd = constSignature.allocStart + constSignature.value.end - constSignature.value.start+1;
-        memcpy(compilationState->memory+constSignature.allocStart,
-               constSignature.value.start,
-               constSignature.value.end - constSignature.value.start);
+    while(IsNotEmptyReader(&sourceCodeReader) && *sourceCodeReader.cursor != 0) {
+        SkipWhiteSpaces(&sourceCodeReader);
         
-        constSignature.value.end = 0;
-    }
-    struct CallSignature callSignature = FindCallSignature(&sourceCodeReader);
-    if (false == callSignature.error) {
-        if (CompareStringRangeWithString(&callSignature.name, "puts") &&
-            CompareStringRanges(&callSignature.arguments, &constSignature.name)) {
-
+        bool noAction = true;
+        struct MethodSignature methodSignature = FindMethodSignature(&sourceCodeReader);
+        if (false == methodSignature.error) {
+            sourceCodeReader.cursor = methodSignature.signatureEnd+1;
             PutCall(compilationState, "MethodEnter");
             PutByte(compilationState, 0);
-            
-            PutCall(compilationState, "PushShortToStack");
-            PutShort(compilationState, constSignature.allocStart);
-            PutCall(compilationState, "PassToPutS");
-            
             PutCall(compilationState, "MethodExit");
+            noAction = false;
+        }
+        struct ConstSignature constSignature = FindConstSignature(&sourceCodeReader);
+        if (false == constSignature.error) {
+            sourceCodeReader.cursor = constSignature.signatureEnd+1;
+            constSignature.allocStart = 256;
+            constSignature.allocEnd = constSignature.allocStart + constSignature.value.end - constSignature.value.start+1;
+            memcpy(compilationState->memory+constSignature.allocStart,
+                   constSignature.value.start,
+                   constSignature.value.end - constSignature.value.start);
+            
+            constSignature.value.end = 0;
+            noAction = false;
+        }
+        struct CallSignature callSignature = FindCallSignature(&sourceCodeReader);
+        if (false == callSignature.error) {
+            if (CompareStringRangeWithString(&callSignature.name, "puts") &&
+                CompareStringRanges(&callSignature.arguments, &constSignature.name)) {
+
+                PutCall(compilationState, "PushShortToStack");
+                PutShort(compilationState, constSignature.allocStart);
+                PutCall(compilationState, "PassToPutS");
+            }
+            noAction = false;
+        }
+        struct EndBlockSignature endBlockSignature = FindEndBlock(&sourceCodeReader);
+        if (false == endBlockSignature.error) {
+            sourceCodeReader.cursor = endBlockSignature.signatureEnd;
+            PutCall(compilationState, "MethodExit");
+            noAction = false;
+        }
+        
+        if (noAction) {
+            PrintSourceCodeWithMarker(sourceCode, sourceCodeReader.cursor);
+            exit(1);
         }
     }
 }
@@ -187,6 +240,22 @@ struct MethodSignature FindMethodSignature(struct Reader* sourceCodeReader) {
     
 returnStmt:
     return methodSignature;
+}
+
+struct EndBlockSignature FindEndBlock(struct Reader* sourceCodeReader) {
+    struct EndBlockSignature endBlockSignature;
+    struct Reader reader;
+    InitReaderCopy(&reader, sourceCodeReader);
+    SkipWhiteSpaces(&reader);
+
+    if (IsNotEmptyReader(&reader)) {
+        endBlockSignature.error = *reader.cursor != '}';
+        endBlockSignature.signatureEnd = reader.cursor+1;
+    }
+    else {
+        endBlockSignature.error = true;
+    }
+    return endBlockSignature;
 }
 
 void SkipWhiteSpaces(struct Reader* reader) {

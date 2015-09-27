@@ -17,25 +17,28 @@ void OpcodesTest() {
     struct State state;
     struct CompilationState compilationState;
     Mem memory[512];
-    memset(memory, 0, sizeof(memory));
+
+    InitState(&state, memory, sizeof(memory));
+    InitCompilationState(&compilationState, memory, sizeof(memory));
     
-    int helloWorldOffset = 256;
-    char* string = "HelloWorld\n";
+    int opcodeTestOffset = 127;
+    char* string = "OpcodeTest #1";
     long len = strlen(string);
-    memcpy(memory+helloWorldOffset, string, len);
+    memcpy(memory+opcodeTestOffset, string, len);
     
     int argNum = 0;
     
-    InitState(&state, memory, sizeof(memory));
-    InitCompilationState(&compilationState, memory, sizeof(memory));
+
     
     PutCall(&compilationState, "MethodEnter");
     PutByte(&compilationState, (argNum+1) * sizeof(Short));
     NextInstruction(&state);
     
     PutCall(&compilationState, "PushShortToStack");
-    PutShort(&compilationState, helloWorldOffset);
+    PutShort(&compilationState, opcodeTestOffset);
     NextInstruction(&state);
+
+    AssertStackTopShort(&state, opcodeTestOffset);
     
     PutCall(&compilationState, "StoreShort");
     PutByte(&compilationState, argNum);
@@ -45,6 +48,8 @@ void OpcodesTest() {
     PutByte(&compilationState, argNum);
     NextInstruction(&state);
     
+    AssertStackTopByte(&state, (Byte)opcodeTestOffset);
+    
     PutCall(&compilationState, "StoreByte");
     PutByte(&compilationState, argNum);
     NextInstruction(&state);
@@ -52,6 +57,8 @@ void OpcodesTest() {
     PutCall(&compilationState, "LoadShort");
     PutByte(&compilationState, argNum);
     NextInstruction(&state);
+    
+    AssertStackTopShort(&state, opcodeTestOffset);
     
     PutCall(&compilationState, "PushByteToStack");
     PutByte(&compilationState, 1);
@@ -75,6 +82,8 @@ void OpcodesTest() {
     NextInstruction(&state);
     NextInstruction(&state);
     NextInstruction(&state);
+
+    AssertStackTopShort(&state, opcodeTestOffset);
     NextInstruction(&state);
     
     PutCall(&compilationState, "PushByteToStack");
@@ -230,7 +239,7 @@ void OpcodesTest() {
         PutByte(&compilationState, 0);
         
         PutCall(&compilationState, "PushShortToStack");
-        PutShort(&compilationState, helloWorldOffset);
+        PutShort(&compilationState, opcodeTestOffset);
         
         PutCall(&compilationState, "PassToPutS");
         

@@ -41,7 +41,8 @@ static void testShouldCreateEmpty() {
 
 static void testShouldPrintConstString() {
     char text[] = "void method() {\n"
-    "   const string anotherName = 'YOU SHOULD SEE ME TWICE\n"
+    "   const string anotherName = 'YOU SHOULD SEE ME TWICE'\n"
+    "   puts (anotherName)\n"
     "}\n";
 
     

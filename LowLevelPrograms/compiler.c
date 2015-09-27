@@ -164,7 +164,7 @@ void CompileCode(char* sourceCode, int sourceCodeSize, CompilationStatePtr aComp
     sourceCodeReader.cursorLimit = sourceCode+sourceCodeSize;
     
     while(IsNotEmptyReader(&sourceCodeReader) && *sourceCodeReader.cursor != 0) {
-        SkipWhiteSpaces(&sourceCodeReader);
+        
         
         bool noAction = true;
         struct MethodSignature methodSignature = FindMethodSignature(&sourceCodeReader);
@@ -172,7 +172,6 @@ void CompileCode(char* sourceCode, int sourceCodeSize, CompilationStatePtr aComp
             sourceCodeReader.cursor = methodSignature.signatureEnd+1;
             PutCall(compilationState, "MethodEnter");
             PutByte(compilationState, 0);
-            PutCall(compilationState, "MethodExit");
             noAction = false;
         }
         struct ConstSignature constSignature = FindConstSignature(&sourceCodeReader);
@@ -195,6 +194,7 @@ void CompileCode(char* sourceCode, int sourceCodeSize, CompilationStatePtr aComp
                 PutCall(compilationState, "PushShortToStack");
                 PutShort(compilationState, constSignature.allocStart);
                 PutCall(compilationState, "PassToPutS");
+                sourceCodeReader.cursor = callSignature.signatureEnd;
             }
             noAction = false;
         }
@@ -205,6 +205,7 @@ void CompileCode(char* sourceCode, int sourceCodeSize, CompilationStatePtr aComp
             noAction = false;
         }
         
+        SkipWhiteSpaces(&sourceCodeReader);
         if (noAction) {
             PrintSourceCodeWithMarker(sourceCode, sourceCodeReader.cursor);
             exit(1);
@@ -443,6 +444,11 @@ struct CallSignature FindCallSignature(struct Reader* sourceCodeReader) {
     }
     
     FindCallArgs(&callSignature);
+    if (callSignature.error) {
+        return callSignature;
+    }
+    
+    callSignature.signatureEnd = callSignature.reader.cursor;
     return callSignature;
 }
 

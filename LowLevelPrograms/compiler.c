@@ -27,6 +27,11 @@ void InitReader(struct Reader* reader, char* sourceCode, int limit) {
     reader->cursorLimit = sourceCode+limit;
 }
 
+void InitReaderCopy(struct Reader* destination, const struct Reader* source) {
+    destination->cursor = source->cursor;
+    destination->cursorLimit = source->cursorLimit;
+}
+
 bool CompareStringRanges(struct StringRange* one, struct StringRange *another) {
     if (one->end - one->start == another->end - another->start) {
         return 0 == memcmp(one->start, another->start, one->end - one->start);
@@ -73,7 +78,7 @@ struct MethodSignature {
     bool error;
 };
 
-struct MethodSignature FindMethodSignature(char* sourceCode, int limit);
+struct MethodSignature FindMethodSignature(struct Reader* sourceCodeReader);
 void FindMethodReturnType(struct MethodSignature* methodSignature);
 void FindMethodName(struct MethodSignature* methodSignature);
 void FindMethodArguments(struct MethodSignature* methodSignature);
@@ -92,7 +97,7 @@ struct ConstSignature {
     bool error;
 };
 
-struct ConstSignature FindConstSignature(char* sourceCode, int limit);
+struct ConstSignature FindConstSignature(struct Reader* sourceCodeReader);
 void FindConstPrefix(struct ConstSignature* constSignature);
 void FindConstType(struct ConstSignature* constSignature);
 void FindConstName(struct ConstSignature* constSignature);
@@ -108,28 +113,27 @@ struct CallSignature {
     bool error;
 };
 
-struct CallSignature FindCallSignature(char* sourceCode, int limit);
+struct CallSignature FindCallSignature(struct Reader* sourceCodeReader);
 void FindCallName(struct CallSignature* callSignature);
 void FindCallArgs(struct CallSignature* callSignature);
 
 
 void CompileCode(char* sourceCode, int sourceCodeSize, CompilationStatePtr aCompilationState) {
     compilationState = aCompilationState;
-    char* readPtr = sourceCode;
-    int readLimit = sourceCodeSize;
+    struct Reader sourceCodeReader;
+    sourceCodeReader.cursor = sourceCode;
+    sourceCodeReader.cursorLimit = sourceCode+sourceCodeSize;
     
-    struct MethodSignature methodSignature = FindMethodSignature(readPtr, readLimit);
+    struct MethodSignature methodSignature = FindMethodSignature(&sourceCodeReader);
     if (false == methodSignature.error) {
-        readPtr = methodSignature.signatureEnd;
-        readLimit = (int)(sourceCodeSize - (readPtr - sourceCode));
+        sourceCodeReader.cursor = methodSignature.signatureEnd+1;
         PutCall(compilationState, "MethodEnter");
         PutByte(compilationState, 0);
         PutCall(compilationState, "MethodExit");
     }
-    struct ConstSignature constSignature = FindConstSignature(readPtr, readLimit);
+    struct ConstSignature constSignature = FindConstSignature(&sourceCodeReader);
     if (false == constSignature.error) {
-        readPtr = constSignature.signatureEnd;
-        readLimit = (int)(sourceCodeSize - (readPtr - sourceCode));
+        sourceCodeReader.cursor = constSignature.signatureEnd+1;
         constSignature.allocStart = 256;
         constSignature.allocEnd = constSignature.allocStart + constSignature.value.end - constSignature.value.start+1;
         memcpy(compilationState->memory+constSignature.allocStart,
@@ -138,7 +142,7 @@ void CompileCode(char* sourceCode, int sourceCodeSize, CompilationStatePtr aComp
         
         constSignature.value.end = 0;
     }
-    struct CallSignature callSignature = FindCallSignature(readPtr, readLimit);
+    struct CallSignature callSignature = FindCallSignature(&sourceCodeReader);
     if (false == callSignature.error) {
         if (CompareStringRangeWithString(&callSignature.name, "puts") &&
             CompareStringRanges(&callSignature.arguments, &constSignature.name)) {
@@ -157,13 +161,13 @@ void CompileCode(char* sourceCode, int sourceCodeSize, CompilationStatePtr aComp
 
 
 
-struct MethodSignature FindMethodSignature(char* sourceCode, int limit) {
+struct MethodSignature FindMethodSignature(struct Reader* sourceCodeReader) {
     struct MethodSignature methodSignature;
     memset(&methodSignature, 0, sizeof(methodSignature));
     
-    char* signatureEnd = strnstr(sourceCode, "{", limit);
+    char* signatureEnd = strnstr(sourceCodeReader->cursor, "{", sourceCodeReader->cursorLimit - sourceCodeReader->cursor);
     if (signatureEnd != NULL) {
-        methodSignature.reader.cursor = sourceCode;
+        methodSignature.reader.cursor = sourceCodeReader->cursor;
         methodSignature.reader.cursorLimit = signatureEnd;
         
         FindMethodReturnType(&methodSignature);
@@ -284,10 +288,10 @@ void FindMethodArguments(struct MethodSignature* methodSignature) {
     
 }
 
-struct ConstSignature FindConstSignature(char* sourceCode, int limit) {
+struct ConstSignature FindConstSignature(struct Reader* sourceCodeReader) {
     struct ConstSignature constSignature;
     memset(&constSignature, 0, sizeof(constSignature));
-    InitReader(&constSignature.reader, sourceCode, limit);
+    InitReaderCopy(&constSignature.reader, sourceCodeReader);
     
     FindConstPrefix(&constSignature);
     if (constSignature.error) {
@@ -359,12 +363,11 @@ void FindConstValue(struct ConstSignature* constSignature) {
     constSignature->value.end = closingParathesis;
 }
 
-struct CallSignature FindCallSignature(char* sourceCode, int limit) {
+struct CallSignature FindCallSignature(struct Reader* sourceCodeReader) {
     struct CallSignature callSignature;
     memset(&callSignature, 0, sizeof(callSignature));
-    InitReader(&callSignature.reader, sourceCode, limit);
+    InitReaderCopy(&callSignature.reader, sourceCodeReader);
 
-    
     FindCallName(&callSignature);
     if (callSignature.error) {
         return callSignature;

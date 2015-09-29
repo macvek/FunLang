@@ -15,6 +15,7 @@ static struct State runtimeState;
 
 static void testShouldCreateEmpty();
 static void testShouldPrintConstString();
+static void testShouldCallDefinedMethod();
 
 void runTest(void (*test)()) {
     Mem memory[1024];
@@ -27,10 +28,11 @@ void runTest(void (*test)()) {
 void CompilerTest() {
     runTest(testShouldCreateEmpty);
     runTest(testShouldPrintConstString);
+    runTest(testShouldCallDefinedMethod);
 }
 
 static void testShouldCreateEmpty() {
-    char text[] = "void method () {\n"
+    char text[] = "void main () {\n"
     "}";
     
     CompileCode(text, sizeof(text), &compilationState);
@@ -40,7 +42,7 @@ static void testShouldCreateEmpty() {
 }
 
 static void testShouldPrintConstString() {
-    char text[] = "void method() {\n"
+    char text[] = "void main() {\n"
     "   const string anotherName = 'YOU SHOULD SEE ME TWICE'\n"
     "   puts (anotherName)\n"
     "}\n";
@@ -49,6 +51,23 @@ static void testShouldPrintConstString() {
     CompileCode(text, sizeof(text), &compilationState);
     
     EvaluateMethod(&runtimeState);
-    printf("YOU SHOULD SEE ME TWICE\n");
+    printf("[PASSED] testShouldPrintConstString, YOU SHOULD SEE ME TWICE\n");
+}
+
+static void testShouldCallDefinedMethod() {
+    char text[] = "void method() {\n"
+    "   const string anotherName = 'YOU SHOULD SEE ME TWICE #2'\n"
+    "   puts (anotherName)\n"
+    "}\n"
+    "\n"
+    "void main() {\n"
+    "   method()\n"
+    "}\n";
+    
+    
+    CompileCode(text, sizeof(text), &compilationState);
+    
+    EvaluateMethod(&runtimeState);
+    printf("[PASSED] testShouldCallDefinedMethod, YOU SHOULD SEE ME TWICE #2\n");
 }
 

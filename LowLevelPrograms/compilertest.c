@@ -42,7 +42,7 @@ static void testShouldCreateEmpty() {
 }
 
 static void testShouldPrintConstString() {
-    char text[] = "void main() {\n"
+    char text[] = "void main () {\n"
     "   const string anotherName = 'YOU SHOULD SEE ME TWICE'\n"
     "   puts (anotherName)\n"
     "}\n";
@@ -55,12 +55,12 @@ static void testShouldPrintConstString() {
 }
 
 static void testShouldCallDefinedMethod() {
-    char text[] = "void method() {\n"
+    char text[] = "void method () {\n"
     "   const string anotherName = 'YOU SHOULD SEE ME TWICE #2'\n"
     "   puts (anotherName)\n"
     "}\n"
     "\n"
-    "void main() {\n"
+    "void main () {\n"
     "   method()\n"
     "}\n";
     

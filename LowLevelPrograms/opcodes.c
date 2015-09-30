@@ -20,8 +20,8 @@
 static void ZeroOpcodeFail0(StatePtr);
 static void PassToPutS0(StatePtr);
 static void PushShortToStack1S(StatePtr);
-static void Call0(StatePtr);
-static void CallArg1S(StatePtr);
+static void CallStackPtr0(StatePtr);
+static void Call1S(StatePtr);
 static void MethodEnter1B(StatePtr);
 static void PushByteToStack1B(StatePtr state);
 static void MethodExit0(StatePtr state);
@@ -62,8 +62,8 @@ static struct APICall ApiCallsList[] = {
     {"PushShortToStack", &PushShortToStack1S, sizeof(Short)},
     {"PushByteToStack", &PushByteToStack1B, sizeof(Byte)},
     {"MethodEnter", &MethodEnter1B, sizeof(Byte)},
-    {"Call", &Call0, 0},
-    {"CallArg", &CallArg1S, sizeof(Short)},
+    {"CallStackPtr", &CallStackPtr0, 0},
+    {"Call", &Call1S, sizeof(Short)},
     {"MethodExit", &MethodExit0, 0},
     {"MethodReturn", &MethodReturn1B, sizeof(Byte)},
     {"StoreByte", &StoreByte1B, sizeof(Byte)},
@@ -196,11 +196,11 @@ void Call(StatePtr state, Short newPC) {
     SetMemOffsetPC(state, newPC);
 }
 
-void Call0(StatePtr state) {
+void CallStackPtr0(StatePtr state) {
     Call(state, PopShortFromStack(state));
 }
 
-void CallArg1S(StatePtr state) {
+void Call1S(StatePtr state) {
     Call(state, GetShortArg(state));
 }
 
@@ -376,9 +376,10 @@ void EvaluateMethod(StatePtr state) {
     int methodExit = IndexOfCall("MethodExit");
     int methodReturn = IndexOfCall("MethodReturn");
     int methodEnter = IndexOfCall("MethodEnter");
+    int initialCall = IndexOfCall("Call");
     
-    if (*state->PC != methodEnter) {
-        puts("Metoda nie zaczyna sie od MethodEnter");
+    if (*state->PC != methodEnter && *state->PC != initialCall) {
+        puts("Metoda nie zaczyna sie od MethodEnter lub nie zaczyna się od wywolania main()");
         exit(1);
     }
     
@@ -389,6 +390,10 @@ void EvaluateMethod(StatePtr state) {
             break;
         }
     }
+}
+
+void EvaluateCode(StatePtr state) {
+    
 }
 
 

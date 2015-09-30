@@ -252,7 +252,7 @@ void OpcodesTest() {
     PutShort(&compilationState, methodOffset);
     NextInstruction(&state);
     
-    PutCall(&compilationState, "Call");
+    PutCall(&compilationState, "CallStackPtr");
     NextInstruction(&state);
     
     NextInstruction(&state);
@@ -266,7 +266,7 @@ void OpcodesTest() {
     PutCall(&compilationState, "PushByteToStack");
     PutByte(&compilationState, argValue);
     
-    PutCall(&compilationState, "CallArg");
+    PutCall(&compilationState, "Call");
     PutShort(&compilationState, methodOffset);
     
     mainPC = compilationState.PC;

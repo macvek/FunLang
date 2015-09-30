@@ -159,9 +159,16 @@ struct EndBlockSignature FindEndBlock(struct Reader* sourceCodeReader);
 
 void CompileCode(char* sourceCode, int sourceCodeSize, CompilationStatePtr aCompilationState) {
     compilationState = aCompilationState;
+    MemPtr initialPC = compilationState->PC;
+    
     struct Reader sourceCodeReader;
     sourceCodeReader.cursor = sourceCode;
     sourceCodeReader.cursorLimit = sourceCode+sourceCodeSize;
+    
+    PutCall(compilationState, "Call");
+    PutShort(compilationState, -1);
+    
+    Short mainAddr = -1;
     
     while(IsNotEmptyReader(&sourceCodeReader) && *sourceCodeReader.cursor != 0) {
         
@@ -170,6 +177,9 @@ void CompileCode(char* sourceCode, int sourceCodeSize, CompilationStatePtr aComp
         struct MethodSignature methodSignature = FindMethodSignature(&sourceCodeReader);
         if (false == methodSignature.error) {
             sourceCodeReader.cursor = methodSignature.signatureEnd+1;
+            if (CompareStringRangeWithString(&methodSignature.name, "main")) {
+                mainAddr = aCompilationState->PC - aCompilationState->memory;
+            }
             PutCall(compilationState, "MethodEnter");
             PutByte(compilationState, 0);
             noAction = false;
@@ -211,6 +221,16 @@ void CompileCode(char* sourceCode, int sourceCodeSize, CompilationStatePtr aComp
             exit(1);
         }
     }
+    
+    if (mainAddr == -1) {
+        printf("No void main () defined\n");
+        exit(1);
+    }
+
+    compilationState->PC = initialPC;
+    PutCall(compilationState, "Call");
+    PutShort(compilationState, mainAddr);
+
 }
 
 

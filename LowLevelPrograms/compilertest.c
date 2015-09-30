@@ -61,7 +61,7 @@ static void testShouldCallDefinedMethod() {
     "}\n"
     "\n"
     "void main () {\n"
-    "   method()\n"
+    "   method ()\n"
     "}\n";
     
     

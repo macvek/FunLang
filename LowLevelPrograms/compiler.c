@@ -108,7 +108,8 @@ struct MethodSignature {
     struct StringRange name;
     
     char* signatureEnd;
-
+    Addr pcOffset;
+    
     bool error;
 };
 
@@ -156,11 +157,13 @@ struct EndBlockSignature {
 };
 
 struct EndBlockSignature FindEndBlock(struct Reader* sourceCodeReader);
+struct MethodSignature definedMethodSignature;
 
 void CompileCode(char* sourceCode, int sourceCodeSize, CompilationStatePtr aCompilationState) {
+    definedMethodSignature.signatureEnd = NULL;
     compilationState = aCompilationState;
     MemPtr initialPC = compilationState->PC;
-    
+    struct MethodSignature methodSignature;
     struct Reader sourceCodeReader;
     sourceCodeReader.cursor = sourceCode;
     sourceCodeReader.cursorLimit = sourceCode+sourceCodeSize;
@@ -174,11 +177,15 @@ void CompileCode(char* sourceCode, int sourceCodeSize, CompilationStatePtr aComp
         
         
         bool noAction = true;
-        struct MethodSignature methodSignature = FindMethodSignature(&sourceCodeReader);
+        methodSignature = FindMethodSignature(&sourceCodeReader);
         if (false == methodSignature.error) {
             sourceCodeReader.cursor = methodSignature.signatureEnd+1;
+            methodSignature.pcOffset = compilationState->PC - compilationState->memory;
             if (CompareStringRangeWithString(&methodSignature.name, "main")) {
                 mainAddr = aCompilationState->PC - aCompilationState->memory;
+            }
+            else {
+                definedMethodSignature = methodSignature;
             }
             PutCall(compilationState, "MethodEnter");
             PutByte(compilationState, 0);
@@ -204,6 +211,11 @@ void CompileCode(char* sourceCode, int sourceCodeSize, CompilationStatePtr aComp
                 PutCall(compilationState, "PushShortToStack");
                 PutShort(compilationState, constSignature.allocStart);
                 PutCall(compilationState, "PassToPutS");
+                sourceCodeReader.cursor = callSignature.signatureEnd;
+            }
+            else if (definedMethodSignature.signatureEnd != NULL && CompareStringRanges(&callSignature.name, &definedMethodSignature.name)) {
+                PutCall(compilationState, "Call");
+                PutShort(compilationState, definedMethodSignature.pcOffset);
                 sourceCodeReader.cursor = callSignature.signatureEnd;
             }
             noAction = false;

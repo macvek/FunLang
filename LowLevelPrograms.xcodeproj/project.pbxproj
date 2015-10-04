@@ -14,6 +14,7 @@
 		DA8E14A11BB074820081BE75 /* compiler.c in Sources */ = {isa = PBXBuildFile; fileRef = DA8E149F1BB074820081BE75 /* compiler.c */; };
 		DA8E14A41BB0756A0081BE75 /* opcodestest.c in Sources */ = {isa = PBXBuildFile; fileRef = DA8E14A21BB0756A0081BE75 /* opcodestest.c */; };
 		DA8E14A81BB088D50081BE75 /* compilertest.c in Sources */ = {isa = PBXBuildFile; fileRef = DA8E14A61BB088D50081BE75 /* compilertest.c */; };
+		DABC7D231BC17FE4009E6BCE /* sourcecodereader.c in Sources */ = {isa = PBXBuildFile; fileRef = DABC7D211BC17FE4009E6BCE /* sourcecodereader.c */; settings = {ASSET_TAGS = (); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -45,6 +46,8 @@
 		DA8E14A61BB088D50081BE75 /* compilertest.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = compilertest.c; sourceTree = "<group>"; };
 		DA8E14A71BB088D50081BE75 /* compilertest.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = compilertest.h; sourceTree = "<group>"; };
 		DABC7D201BC14834009E6BCE /* testing.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = testing.h; sourceTree = "<group>"; };
+		DABC7D211BC17FE4009E6BCE /* sourcecodereader.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sourcecodereader.c; sourceTree = "<group>"; };
+		DABC7D221BC17FE4009E6BCE /* sourcecodereader.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sourcecodereader.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -92,6 +95,8 @@
 				DA6A149C1BBC57180058E1EB /* parsertest.c */,
 				DA6A149D1BBC57180058E1EB /* parsertest.h */,
 				DABC7D201BC14834009E6BCE /* testing.h */,
+				DABC7D211BC17FE4009E6BCE /* sourcecodereader.c */,
+				DABC7D221BC17FE4009E6BCE /* sourcecodereader.h */,
 			);
 			path = LowLevelPrograms;
 			sourceTree = "<group>";
@@ -154,6 +159,7 @@
 			files = (
 				DA03A9191B9F83D900429644 /* main.c in Sources */,
 				DA8E149E1BAC70770081BE75 /* opcodes.c in Sources */,
+				DABC7D231BC17FE4009E6BCE /* sourcecodereader.c in Sources */,
 				DA8E14A81BB088D50081BE75 /* compilertest.c in Sources */,
 				DA8E14A11BB074820081BE75 /* compiler.c in Sources */,
 				DA6A149B1BBC57030058E1EB /* parser.c in Sources */,

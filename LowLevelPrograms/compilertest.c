@@ -8,6 +8,7 @@
 
 #include "compilertest.h"
 #include "compiler.h"
+#include "testing.h"
 #include <stdio.h>
 
 static struct CompilationState compilationState;
@@ -17,7 +18,9 @@ static void testShouldCreateEmpty();
 static void testShouldPrintConstString();
 static void testShouldCallDefinedMethod();
 
-void runTest(void (*test)()) {
+static void runTest(TestingCallback test) {
+    printf(">>> CompilerTest \n");
+    
     Mem memory[1024];
     InitCompilationState(&compilationState, memory, sizeof(memory));
     InitState(&runtimeState, memory, sizeof(memory));

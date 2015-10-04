@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		DA03A9191B9F83D900429644 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = DA03A9181B9F83D900429644 /* main.c */; };
+		DA6A149B1BBC57030058E1EB /* parser.c in Sources */ = {isa = PBXBuildFile; fileRef = DA6A14991BBC57030058E1EB /* parser.c */; settings = {ASSET_TAGS = (); }; };
+		DA6A149E1BBC57180058E1EB /* parsertest.c in Sources */ = {isa = PBXBuildFile; fileRef = DA6A149C1BBC57180058E1EB /* parsertest.c */; settings = {ASSET_TAGS = (); }; };
 		DA8E149E1BAC70770081BE75 /* opcodes.c in Sources */ = {isa = PBXBuildFile; fileRef = DA8E149D1BAC70770081BE75 /* opcodes.c */; };
 		DA8E14A11BB074820081BE75 /* compiler.c in Sources */ = {isa = PBXBuildFile; fileRef = DA8E149F1BB074820081BE75 /* compiler.c */; };
 		DA8E14A41BB0756A0081BE75 /* opcodestest.c in Sources */ = {isa = PBXBuildFile; fileRef = DA8E14A21BB0756A0081BE75 /* opcodestest.c */; };
@@ -29,6 +31,10 @@
 /* Begin PBXFileReference section */
 		DA03A9151B9F83D900429644 /* LowLevelPrograms */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = LowLevelPrograms; sourceTree = BUILT_PRODUCTS_DIR; };
 		DA03A9181B9F83D900429644 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
+		DA6A14991BBC57030058E1EB /* parser.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = parser.c; sourceTree = "<group>"; };
+		DA6A149A1BBC57030058E1EB /* parser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = parser.h; sourceTree = "<group>"; };
+		DA6A149C1BBC57180058E1EB /* parsertest.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = parsertest.c; sourceTree = "<group>"; };
+		DA6A149D1BBC57180058E1EB /* parsertest.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = parsertest.h; sourceTree = "<group>"; };
 		DA8E149B1BAC6ED70081BE75 /* types.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = types.h; sourceTree = "<group>"; };
 		DA8E149C1BAC70390081BE75 /* opcodes.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = opcodes.h; sourceTree = "<group>"; };
 		DA8E149D1BAC70770081BE75 /* opcodes.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = opcodes.c; sourceTree = "<group>"; };
@@ -38,6 +44,7 @@
 		DA8E14A51BB087170081BE75 /* opcodestest.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = opcodestest.h; sourceTree = "<group>"; };
 		DA8E14A61BB088D50081BE75 /* compilertest.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = compilertest.c; sourceTree = "<group>"; };
 		DA8E14A71BB088D50081BE75 /* compilertest.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = compilertest.h; sourceTree = "<group>"; };
+		DABC7D201BC14834009E6BCE /* testing.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = testing.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -80,6 +87,11 @@
 				DA8E14A51BB087170081BE75 /* opcodestest.h */,
 				DA8E14A61BB088D50081BE75 /* compilertest.c */,
 				DA8E14A71BB088D50081BE75 /* compilertest.h */,
+				DA6A14991BBC57030058E1EB /* parser.c */,
+				DA6A149A1BBC57030058E1EB /* parser.h */,
+				DA6A149C1BBC57180058E1EB /* parsertest.c */,
+				DA6A149D1BBC57180058E1EB /* parsertest.h */,
+				DABC7D201BC14834009E6BCE /* testing.h */,
 			);
 			path = LowLevelPrograms;
 			sourceTree = "<group>";
@@ -144,7 +156,9 @@
 				DA8E149E1BAC70770081BE75 /* opcodes.c in Sources */,
 				DA8E14A81BB088D50081BE75 /* compilertest.c in Sources */,
 				DA8E14A11BB074820081BE75 /* compiler.c in Sources */,
+				DA6A149B1BBC57030058E1EB /* parser.c in Sources */,
 				DA8E14A41BB0756A0081BE75 /* opcodestest.c in Sources */,
+				DA6A149E1BBC57180058E1EB /* parsertest.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

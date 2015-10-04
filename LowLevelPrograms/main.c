@@ -8,9 +8,12 @@
 
 #include "opcodestest.h"
 #include "compilertest.h"
+#include "parsertest.h"
+
 
 int main(int argc, const char * argv[]) {
     OpcodesTest();
     CompilerTest();
+    ParserTest();
     return 0;
 }

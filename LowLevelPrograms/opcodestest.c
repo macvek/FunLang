@@ -14,6 +14,8 @@
 #include "opcodes.h"
 
 void OpcodesTest() {
+    printf(">>> OpcodesTest \n");
+    
     struct State state;
     struct CompilationState compilationState;
     Mem memory[512];
